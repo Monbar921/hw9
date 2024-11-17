@@ -34,14 +34,6 @@ class HomeWorkTest {
         runTest("upit.%s." + num);
     }
 
-    @ParameterizedTest
-    @ValueSource(ints = {
-            1
-    })
-    void upit1(int num) {
-        runTest("upit.%s." + num);
-    }
-
     private void runTest(String pattern) {
         execute(pattern);
         assertRun(pattern);

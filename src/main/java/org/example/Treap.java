@@ -1,9 +1,9 @@
 package org.example;
+
 import lombok.Getter;
 
 import java.lang.reflect.Array;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 
@@ -23,13 +23,12 @@ public class Treap {
     Node root;
 
     public static View getFieldView(String cmd) {
-        try{
+        try {
             return View.valueOf(cmd);
-        }catch (Exception e){
+        } catch (Exception e) {
             return view;
         }
     }
-
 
     public void add(Long value) {
         root = merge(root, new Node(value));
@@ -41,6 +40,15 @@ public class Treap {
         root = merge(merge(split[0], tmp), split[1]);
     }
 
+    private void add(Node node, long value, Node increaseValue) {
+        if (node == null) {
+            return;
+        }
+        add(node.left, value, increaseValue);
+        node.value += value * increaseValue.value;
+        increaseValue.value += 1;
+        add(node.right, value, increaseValue);
+    }
 
     public void remove(int pos) {
         if (sizeOf(root) <= pos) {
@@ -56,7 +64,7 @@ public class Treap {
         return search(root, value) != null;
     }
 
-    public Statistic getStats(int a, int b) {
+    public Long getStats(int a, int b) {
         if (a > b) {
             return null;
         }
@@ -64,23 +72,37 @@ public class Treap {
         Node[] low = root.split(a);
         // [a < b) [b < N)
         Node[] high = low[1].split(b - a);
-        return high[0].statistic;
+        return inorder(high[0]);
     }
 
     public void addToAll(int a, int b, long value) {
         // [0 < a) [a < N)
         Node[] low = root.split(a);
         // [a < b) [b < N)
-        Node[] high = null;
-        if(low[1] != null) {
-            high = low[1].split(b - a);
-        }
+        Node[] high = low[1].split(b - a);
 
-        if(high[0] != null) {
-            System.out.println(high[0]);
-            high[0].addToPromiseAdd(value);
-        }
+        add(high[0], value, new Node((long) 1));
+        high[0].recalculate();
         root = merge(merge(low[0], high[0]), high[1]);
+    }
+
+    public void setValueOnInterval(int a, int b, long value) {
+        Node[] low = root.split(a);
+        // [a < b) [b < N)
+        Node[] high = low[1].split(b - a);
+
+        setAll(high[0], value);
+        high[0].recalculate();
+        root = merge(merge(low[0], high[0]), high[1]);
+    }
+
+    private void setAll(Node node, long value) {
+        if (node == null) {
+            return;
+        }
+        setAll(node.left, value);
+        node.value = value;
+        setAll(node.right, value);
     }
 
     public void reverse(int a, int b) {
@@ -93,15 +115,16 @@ public class Treap {
         root = merge(merge(low[0], high[0]), high[1]);
     }
 
-    public void shiftLeft(int pos){
+    public void shiftLeft(int pos) {
         Node[] split = root.split(pos);
         root = merge(split[1], split[0]);
     }
 
-    public void shiftRight(int pos){
-        Node[] split = root.split(root.size-pos);
+    public void shiftRight(int pos) {
+        Node[] split = root.split(root.size - pos);
         root = merge(split[1], split[0]);
     }
+
     private Long search(Node cur, Long value) {
         if (cur == null) {
             return null;
@@ -121,10 +144,30 @@ public class Treap {
         return res;
     }
 
-    public List<String> inorder(Node subRoot) {
-        List<String> res = new ArrayList<>();
-        inorder(subRoot, res);
-        return res;
+    public Long inorder(Node subRoot, Long sum) {
+        if (subRoot != null) {
+            sum += inorder(subRoot.left, sum);
+            sum += subRoot.value;
+            sum += inorder(subRoot.right, sum);
+            return sum;
+        }
+        return 0L;
+    }
+
+    private void inorder(Node subRoot, Result result) {
+        if (subRoot == null) {
+            return;
+        }
+        //cur.pushPromise();
+        inorder(subRoot.left, result);
+        result.sum += subRoot.value;
+        inorder(subRoot.right, result);
+    }
+
+    public Long inorder(Node subRoot) {
+        Result result = new Result(0L);
+        inorder(subRoot, result);
+        return result.sum;
     }
 
     public Node[] split(int pos) {
@@ -327,13 +370,13 @@ public class Treap {
 
         @Override
         public String toString() {
-            if(Treap.view == View.value){
+            if (Treap.view == View.value) {
                 return String.valueOf(value);
             }
-            if(Treap.view == View.small){
+            if (Treap.view == View.small) {
                 return String.format("(%d/+%d %b)", valueOf(this), addPromise, isReversed);
             }
-            if(Treap.view == View.medium){
+            if (Treap.view == View.medium) {
                 return String.format("(%d,%d[%d]/+%d %b)", valueOf(this), priority, size, addPromise, isReversed);
             }
             return String.format("(%d[%d]/m%d s%d M%d +%d %b)", valueOf(this), size, statistic.minValue, statistic.sumValue, statistic.maxValue, addPromise, isReversed);
@@ -341,6 +384,11 @@ public class Treap {
 
         public void addToPromiseAdd(long add) {
             addPromise += add;
+            recalculate();
+        }
+
+        public void setValue(long value) {
+            this.value = value;
             recalculate();
         }
 
@@ -378,5 +426,13 @@ public class Treap {
         medium,
         small,
         value
+    }
+
+    private static class Result {
+        private Long sum;
+
+        public Result(Long sum) {
+            this.sum = sum;
+        }
     }
 }
